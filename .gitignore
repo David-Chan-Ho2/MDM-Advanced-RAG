@@ -1,0 +1,31 @@
+# Environment
+.env
+*.env
+
+# Data (never commit raw documents or processed artifacts)
+data/raw/
+data/processed/
+data/chunks/
+data/review.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Qdrant local storage
+qdrant_storage/
+
+# BM25 index
+data/bm25_index.pkl
+
+# OS
+.DS_Store
+Thumbs.db
