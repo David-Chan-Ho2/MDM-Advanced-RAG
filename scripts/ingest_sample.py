@@ -22,6 +22,7 @@ from ingestion.chunker import Chunk
 from embedding.embedder import EmbeddingService
 from embedding.indexer import VectorIndexer
 from config.settings import settings
+from retrieval.sparse_retriever import SparseRetriever
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,11 +47,13 @@ def main() -> None:
     pipeline = IngestionPipeline()
     embedder = EmbeddingService()
     indexer = VectorIndexer()
+    sparse_retriever = SparseRetriever()
 
     if args.reset:
         logger.warning("--reset: deleting existing collection")
         indexer.delete_collection()
         indexer = VectorIndexer()  # recreate
+        sparse_retriever.delete_index()
 
     # --- Collect files ---
     all_files = [f for f in args.dir.rglob("*") if f.is_file()]
@@ -70,8 +73,10 @@ def main() -> None:
 
     logger.info(f"Total chunks: {len(all_chunks)}")
 
+    sparse_retriever.build_from_chunks(all_chunks)
+
     # --- Embed and index in batches ---
-    batch_size = settings.EMBEDDING_BATCH_SIZE
+    batch_size = settings.INDEX_FLUSH_BATCH_SIZE
     for i in tqdm(range(0, len(all_chunks), batch_size), desc="Embedding & indexing"):
         batch = all_chunks[i : i + batch_size]
         texts = [c.text for c in batch]
@@ -79,6 +84,7 @@ def main() -> None:
         indexer.upsert(batch, embeddings)
 
     logger.info(f"Done. {indexer.count()} total vectors in '{settings.QDRANT_COLLECTION}'.")
+    logger.info(f"Sparse index persisted to {sparse_retriever.index_path}.")
 
 
 if __name__ == "__main__":

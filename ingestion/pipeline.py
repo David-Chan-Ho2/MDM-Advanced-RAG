@@ -38,6 +38,10 @@ class IngestionPipeline:
             return []
         try:
             doc = parser.parse(file_path)
+            doc.metadata = {
+                **doc.metadata,
+                "source_path": str(file_path.resolve()),
+            }
             chunks = self.chunker.chunk(doc)
             logger.debug(f"{file_path.name}: {len(chunks)} chunks")
             return chunks

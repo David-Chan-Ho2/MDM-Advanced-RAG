@@ -1,5 +1,5 @@
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -30,7 +30,9 @@ class Settings(BaseSettings):
     TOP_K_DENSE: int = 10
     TOP_K_SPARSE: int = 10
     TOP_K_RERANK: int = 5
+    HYBRID_CANDIDATE_POOL: int = 20
     RRF_K: int = 60  # Reciprocal Rank Fusion constant
+    QUERY_DECOMPOSITION_MAX_SUBQUERIES: int = 4
 
     # --- Vector Store (Qdrant) ---
     QDRANT_HOST: str = "localhost"
@@ -39,11 +41,13 @@ class Settings(BaseSettings):
 
     # --- Batch Processing ---
     BATCH_CONCURRENCY: int = 5
+    INDEX_FLUSH_BATCH_SIZE: int = 100
     MAX_RETRIES: int = 3
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+    )
 
 
 settings = Settings()

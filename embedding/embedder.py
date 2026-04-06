@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-import time
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config.settings import settings
 
+try:
+    from openai import OpenAI
+except ImportError:  # pragma: no cover - exercised via runtime guard
+    OpenAI = None
+
 
 class EmbeddingService:
     def __init__(self, model: str = settings.EMBEDDING_MODEL):
-        try:
-            from openai import OpenAI
-        except ImportError:
+        if OpenAI is None:
             raise RuntimeError("openai is required: pip install openai")
 
         self._client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -42,7 +44,10 @@ class EmbeddingService:
     def _embed_batch(self, texts: list[str]) -> list[list[float]]:
         # Replace empty strings to avoid API errors
         cleaned = [t if t.strip() else "." for t in texts]
-        response = self._client.embeddings.create(model=self.model, input=cleaned)
+        response = self._client.embeddings.create(
+            model=self.model,
+            input=cleaned,
+        )
         return [item.embedding for item in response.data]
 
     def embed_query(self, query: str) -> list[float]:

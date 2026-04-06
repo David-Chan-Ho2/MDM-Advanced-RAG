@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -69,15 +68,25 @@ class DocumentChunker:
                     continue
                 chunks.append(
                     Chunk(
-                        chunk_id=str(uuid.uuid4()),
+                        chunk_id=self._make_chunk_id(
+                            document_id=doc.document_id,
+                            page_number=page.page_number,
+                            chunk_index=chunk_index,
+                        ),
                         document_id=doc.document_id,
                         filename=doc.filename,
                         file_format=doc.file_format,
                         page_number=page.page_number,
                         chunk_index=chunk_index,
                         text=split,
+                        metadata=dict(doc.metadata),
                     )
                 )
                 chunk_index += 1
 
         return chunks
+
+    @staticmethod
+    def _make_chunk_id(document_id: str, page_number: int, chunk_index: int) -> str:
+        seed = f"{document_id}:{page_number}:{chunk_index}"
+        return str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
