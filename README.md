@@ -38,7 +38,7 @@ Documents → Parse → Chunk → Embed → Vector Store
 
 ---
 
-### Week 2 — Advanced Retrieval & Multi-Agent Extraction _(up next)_
+### ✅ Week 2 — Advanced Retrieval & Multi-Agent Extraction _(complete)_
 > Goal: hybrid search + 5-agent extraction framework producing structured `ProductRecord`s
 
 | Member | Files | Deliverable |
@@ -52,7 +52,7 @@ Documents → Parse → Chunk → Embed → Vector Store
 
 ---
 
-### Week 3 — Approval Workflow & Final Integration
+### ✅ Week 3 — Approval Workflow & Final Integration _(complete)_
 > Goal: data steward UI, full 5K extraction run, PIM export
 
 | Member | Files | Deliverable |
@@ -278,5 +278,5 @@ VECTOR_BACKEND=chroma
 | Week | Status | Goal | Acceptance Criteria |
 |------|--------|------|---------------------|
 | **1** | ✅ Complete | Foundation | `ingest_sample.py` + `query_baseline.py` working end-to-end on 20 docs |
-| **2** | 🔄 In progress | Advanced extraction | `run_batch.py` on 500 docs, >80% extraction accuracy on spot-check |
-| **3** | ⏳ Pending | Approval + export | Data stewards can review and export approved PIM data via Streamlit UI |
+| **2** | ✅ Complete | Advanced extraction | `run_batch.py` on 500 docs, >80% extraction accuracy on spot-check |
+| **3** | ✅ Complete | Approval + export | Data stewards can review and export approved PIM data via Streamlit UI |
