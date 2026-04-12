@@ -3,6 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
     # --- Paths ---
     RAW_DATA_DIR: Path = Path("data/raw")
     PROCESSED_DIR: Path = Path("data/processed")
@@ -43,11 +45,5 @@ class Settings(BaseSettings):
     BATCH_CONCURRENCY: int = 5
     INDEX_FLUSH_BATCH_SIZE: int = 100
     MAX_RETRIES: int = 3
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-    )
-
 
 settings = Settings()
