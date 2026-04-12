@@ -5,26 +5,25 @@ These tests mock the OpenAI client so they run without an API key.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+
+def _fake_create(model, input, **kwargs):
+    response = MagicMock()
+    response.data = [
+        MagicMock(embedding=[0.1 * i] * 1536) for i in range(len(input))
+    ]
+    return response
 
 
 @pytest.fixture
 def mock_embedder():
-    """Return an EmbeddingService with the OpenAI client mocked out."""
-    with patch("openai.OpenAI") as MockOpenAI:
-        # Build a fake embedding response
-        def fake_create(model, input):
-            response = MagicMock()
-            response.data = [
-                MagicMock(embedding=[0.1 * i] * 1536) for i in range(len(input))
-            ]
-            return response
-
-        MockOpenAI.return_value.embeddings.create.side_effect = fake_create
-
-        from embedding.embedder import EmbeddingService
-        embedder = EmbeddingService()
-        yield embedder
+    """Return an EmbeddingService with the internal OpenAI client mocked out."""
+    from embedding.embedder import EmbeddingService
+    embedder = EmbeddingService()
+    embedder._client = MagicMock()
+    embedder._client.embeddings.create.side_effect = _fake_create
+    return embedder
 
 
 class TestEmbeddingService:
