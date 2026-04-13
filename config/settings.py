@@ -20,9 +20,9 @@ class Settings(BaseSettings):
 
     # --- Embeddings ---
     OPENAI_API_KEY: str = ""
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     EMBEDDING_BATCH_SIZE: int = 100
-    EMBEDDING_DIMENSIONS: int = 1536
+    EMBEDDING_DIMENSIONS: int = 384
 
     # --- Chunking ---
     CHUNK_SIZE: int = 800
