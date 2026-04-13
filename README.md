@@ -116,6 +116,7 @@ project3/
 │       ├── 02_approved.py        # Approved records read-only view
 │       └── 03_export.py          # Export controls + download
 ├── scripts/
+│   ├── generate_test_docs.py     # Generate synthetic product spec docs for local testing
 │   ├── ingest_sample.py          # Ingest a folder of documents into the vector store
 │   ├── query_baseline.py         # Query the baseline RAG from the CLI
 │   └── run_batch.py              # Run full batch extraction across all documents
@@ -133,12 +134,17 @@ project3/
 
 ## Setup
 
+### Prerequisites
+
+- Python 3.11+
+- Docker (for Qdrant; see [Chroma fallback](#chroma-fallback) if unavailable)
+
 ### 1. Clone and install dependencies
 
 ```bash
 git clone <repo-url>
 cd project3
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
@@ -164,15 +170,37 @@ docker run -p 6333:6333 qdrant/qdrant
 
 ## Usage
 
-### Week 1 — Ingest and query a sample
+### Quick start (Week 1 — no real documents required)
+
+Use the test-doc generator to create one synthetic spec in each supported format, then run the full ingest → query loop against them.
 
 ```bash
-# Place sample documents in data/raw/
+# 1. Generate 5 synthetic product spec documents (PDF, DOCX, Excel, HTML, TXT)
+python scripts/generate_test_docs.py
+# Output written to data/raw/
+
+# 2. Ingest the generated documents into the vector store
 python scripts/ingest_sample.py --dir data/raw --limit 20
 
-# Ask a question against the indexed documents
+# 3. Ask a question against the indexed documents
 python scripts/query_baseline.py "What is the operating temperature range for product X?"
 ```
+
+The generator creates one document per supported parser. Each file contains realistic attribute data covering every field in `ProductRecord` (part numbers, dimensions, electrical specs, materials, performance metrics), so the full extraction pipeline has something meaningful to work with.
+
+### Running the tests
+
+```bash
+# Run the full unit test suite (no API keys or Qdrant required)
+pytest tests/ -v
+
+# Run a specific test module
+pytest tests/test_parsers.py -v
+pytest tests/test_chunker.py -v
+pytest tests/test_embedder.py -v
+```
+
+The unit tests use fixtures from `tests/conftest.py` and mock external calls, so they work offline without Qdrant or API credentials.
 
 ### Week 2 — Run batch extraction
 
@@ -228,17 +256,7 @@ physical_dimensions__length__value, physical_dimensions__length__unit, physical_
 
 ## Architecture Notes
 
-### Why hybrid retrieval?
-Dense (vector) search finds semantically similar content. Sparse (BM25) search finds exact keyword matches like part numbers and model codes. Reciprocal Rank Fusion (RRF) merges both ranked lists; the cross-encoder reranker then rescores the merged candidates. Together they outperform either method alone on technical documents.
-
-### Why per-document retrieval in batch mode?
-Each extraction agent filters Qdrant by `document_id` so it only sees chunks from the target document. This prevents Product A's specifications from contaminating Product B's extraction.
-
-### Why `instructor`?
-The `instructor` library wraps the Anthropic SDK and enforces Pydantic model output from every LLM call. If Claude returns malformed JSON, it automatically retries with an error correction prompt — eliminating a whole class of parsing bugs at scale.
-
-### Why checkpoint-based batch processing?
-`BatchExtractionRunner` writes each `ProductRecord` to SQLite immediately after extraction. If a run fails at document 3,000, restarting with `--resume` skips already-processed documents. No work is lost.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for rationale behind key technical decisions (retrieval strategy, chunking, embeddings, vector store, batch processing, review store, and UI).
 
 ---
 
