@@ -39,3 +39,7 @@ class BaseParser(ABC):
     @abstractmethod
     def parse(self, file_path: Path) -> ParsedDocument:
         """Parse file and return a ParsedDocument."""
+
+    def parse_many(self, file_path: Path) -> list[ParsedDocument]:
+        """Parse file into multiple documents. Override for multi-doc formats (e.g. CSV)."""
+        return [self.parse(file_path)]

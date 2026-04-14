@@ -3,6 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
     # --- Paths ---
     RAW_DATA_DIR: Path = Path("data/raw")
     PROCESSED_DIR: Path = Path("data/processed")
@@ -18,9 +20,9 @@ class Settings(BaseSettings):
 
     # --- Embeddings ---
     OPENAI_API_KEY: str = ""
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     EMBEDDING_BATCH_SIZE: int = 100
-    EMBEDDING_DIMENSIONS: int = 1536
+    EMBEDDING_DIMENSIONS: int = 384
 
     # --- Chunking ---
     CHUNK_SIZE: int = 800
@@ -43,11 +45,5 @@ class Settings(BaseSettings):
     BATCH_CONCURRENCY: int = 5
     INDEX_FLUSH_BATCH_SIZE: int = 100
     MAX_RETRIES: int = 3
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-    )
-
 
 settings = Settings()

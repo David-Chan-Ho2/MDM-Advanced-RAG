@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 @pytest.fixture
 def mock_embedder():
     """Return an EmbeddingService with the OpenAI client mocked out."""
-    with patch("embedding.embedder.OpenAI") as MockOpenAI:
+    with patch("openai.OpenAI") as MockOpenAI:
         # Build a fake embedding response
         def fake_create(model, input):
             response = MagicMock()
