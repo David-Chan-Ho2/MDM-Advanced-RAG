@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from .base import BaseParser, ParsedDocument, ParsedPage
 
 # Tags that typically don't contain product content

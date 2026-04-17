@@ -7,12 +7,12 @@ from tqdm import tqdm
 
 from ingestion.chunker import Chunk, DocumentChunker
 from ingestion.parsers.base import BaseParser
-from ingestion.parsers.pdf_parser import PDFParser
+from ingestion.parsers.csv_parser import CsvParser
 from ingestion.parsers.docx_parser import DocxParser
 from ingestion.parsers.excel_parser import ExcelParser
 from ingestion.parsers.html_parser import HTMLParser
+from ingestion.parsers.pdf_parser import PDFParser
 from ingestion.parsers.txt_parser import TxtParser
-from ingestion.parsers.csv_parser import CsvParser
 
 _DEFAULT_PARSERS: list[BaseParser] = [
     PDFParser(),
@@ -42,6 +42,10 @@ class IngestionPipeline:
             docs = parser.parse_many(file_path)
             chunks: list[Chunk] = []
             for doc in docs:
+                doc.metadata = {
+                    **doc.metadata,
+                    "source_path": str(file_path.resolve()),
+                }
                 chunks.extend(self.chunker.chunk(doc))
             logger.debug(f"{file_path.name}: {len(docs)} docs → {len(chunks)} chunks")
             return chunks

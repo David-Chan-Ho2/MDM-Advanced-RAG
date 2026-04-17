@@ -17,11 +17,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from loguru import logger
 from tqdm import tqdm
 
-from ingestion.pipeline import IngestionPipeline
-from ingestion.chunker import Chunk
+from config.settings import settings
 from embedding.embedder import EmbeddingService
 from embedding.indexer import VectorIndexer
-from config.settings import settings
+from ingestion.chunker import Chunk
+from ingestion.pipeline import IngestionPipeline
 from retrieval.sparse_retriever import SparseRetriever
 
 

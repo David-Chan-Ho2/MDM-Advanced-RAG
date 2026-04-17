@@ -135,7 +135,6 @@ def make_html():
 
 def make_docx():
     from docx import Document
-    from docx.shared import Pt
 
     doc = Document()
     doc.add_heading("TT-8800 Temperature Transmitter — Product Specification", 0)
@@ -202,7 +201,7 @@ def make_docx():
 
 def make_excel():
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
     wb = openpyxl.Workbook()

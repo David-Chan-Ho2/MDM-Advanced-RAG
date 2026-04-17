@@ -64,6 +64,7 @@ class ExtractionValidator:
 
         record = ProductRecord(
             document_id=document_id,
+            product_id=document_id,
             document_filename=document_filename,
             extraction_timestamp=datetime.now(timezone.utc).isoformat(),
             identifiers=ProductIdentifiers.model_validate(payload_map.get("identifiers", {})),

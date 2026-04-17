@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import csv
 from pathlib import Path
 
@@ -44,25 +45,74 @@ class CsvParser(BaseParser):
                 if not text:
                     continue
 
-                doc_id = (
+                source_document_id = (
                     row.get("id")
                     or row.get("p_id")
                     or f"{file_path.stem}_row{reader.line_num}"
                 )
-                filename = row.get("file_name") or f"{doc_id}.txt"
+                product_ids = self._parse_product_ids(row.get("product_id"))
+                if not product_ids:
+                    product_ids = [source_document_id]
+                filename = row.get("file_name") or f"{source_document_id}.txt"
 
-                metadata = {
-                    k: row[k]
-                    for k in ("title", "document_type", "document_subtype",
-                              "product_family", "product_id", "url")
-                    if row.get(k)
-                }
+                for product_id in product_ids:
+                    metadata = {
+                        k: row[k]
+                        for k in (
+                            "title",
+                            "document_type",
+                            "document_subtype",
+                            "product_family",
+                            "target_audience",
+                            "sbg",
+                            "sbe",
+                            "url",
+                        )
+                        if row.get(k)
+                    }
+                    metadata.update(
+                        {
+                            "product_id": product_id,
+                            "source_document_id": source_document_id,
+                            "source_p_id": row.get("p_id"),
+                            "source_row_number": reader.line_num - 1,
+                            "source_file": file_path.name,
+                        }
+                    )
 
-                docs.append(ParsedDocument(
-                    document_id=doc_id,
-                    filename=filename,
-                    file_format="csv",
-                    pages=[ParsedPage(page_number=1, text=text)],
-                    metadata=metadata,
-                ))
+                    docs.append(
+                        ParsedDocument(
+                            document_id=product_id,
+                            filename=filename,
+                            file_format="csv",
+                            pages=[ParsedPage(page_number=1, text=text)],
+                            metadata=metadata,
+                        )
+                    )
         return docs
+
+    @staticmethod
+    def _parse_product_ids(raw_value: str | None) -> list[str]:
+        raw_value = (raw_value or "").strip()
+        if not raw_value:
+            return []
+
+        try:
+            parsed = ast.literal_eval(raw_value)
+        except (SyntaxError, ValueError):
+            parsed = raw_value
+
+        if isinstance(parsed, str):
+            values = parsed.strip("[]").split(",")
+        elif isinstance(parsed, (list, tuple, set)):
+            values = parsed
+        else:
+            values = [parsed]
+
+        product_ids = []
+        for value in values:
+            product_id = str(value).strip().strip("'\"")
+            if product_id:
+                product_ids.append(product_id)
+
+        return list(dict.fromkeys(product_ids))

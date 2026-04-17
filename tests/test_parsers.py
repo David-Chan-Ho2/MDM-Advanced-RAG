@@ -1,14 +1,12 @@
 """Tests for document parsers."""
 
-import pytest
-from pathlib import Path
 
-from ingestion.parsers.txt_parser import TxtParser
+from ingestion.parsers.base import ParsedDocument
+from ingestion.parsers.csv_parser import CsvParser
 from ingestion.parsers.docx_parser import DocxParser
 from ingestion.parsers.excel_parser import ExcelParser
 from ingestion.parsers.html_parser import HTMLParser
-from ingestion.parsers.base import ParsedDocument
-
+from ingestion.parsers.txt_parser import TxtParser
 
 # ---------------------------------------------------------------------------
 # TxtParser
@@ -123,3 +121,25 @@ class TestHTMLParser:
     def test_body_text_present(self, tmp_html):
         doc = self.parser.parse(tmp_html)
         assert "WP-1234" in doc.full_text()
+
+
+# ---------------------------------------------------------------------------
+# CsvParser
+# ---------------------------------------------------------------------------
+
+class TestCsvParser:
+    def setup_method(self):
+        self.parser = CsvParser()
+
+    def test_explodes_rows_by_product_id(self, tmp_path):
+        csv_path = tmp_path / "sample.csv"
+        csv_path.write_text(
+            "id,file_name,file_content,product_id,product_family\n"
+            'doc-1,spec.pdf,"Part Number: ABC-1","[""P1"",""P2""]",Controls\n'
+        )
+
+        docs = self.parser.parse_many(csv_path)
+
+        assert [doc.document_id for doc in docs] == ["P1", "P2"]
+        assert all(doc.metadata["source_document_id"] == "doc-1" for doc in docs)
+        assert docs[0].metadata["product_id"] == "P1"

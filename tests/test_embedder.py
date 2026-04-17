@@ -1,26 +1,29 @@
 """
 Tests for EmbeddingService.
 
-These tests mock the OpenAI client so they run without an API key.
+These tests mock the embedding backend so they run without API keys or model downloads.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
+from config.settings import settings
 
 
 @pytest.fixture
 def mock_embedder():
-    """Return an EmbeddingService with the OpenAI client mocked out."""
-    with patch("openai.OpenAI") as MockOpenAI:
-        # Build a fake embedding response
-        def fake_create(model, input):
-            response = MagicMock()
-            response.data = [
-                MagicMock(embedding=[0.1 * i] * 1536) for i in range(len(input))
-            ]
-            return response
+    """Return an EmbeddingService with the local sentence-transformer mocked out."""
+    with patch("sentence_transformers.SentenceTransformer") as MockSentenceTransformer:
+        def fake_encode(input, show_progress_bar=False):
+            return MagicMock(
+                tolist=lambda: [
+                    [0.1 * i] * settings.EMBEDDING_DIMENSIONS
+                    for i in range(len(input))
+                ]
+            )
 
-        MockOpenAI.return_value.embeddings.create.side_effect = fake_create
+        MockSentenceTransformer.return_value.encode.side_effect = fake_encode
 
         from embedding.embedder import EmbeddingService
         embedder = EmbeddingService()
@@ -36,12 +39,12 @@ class TestEmbeddingService:
 
     def test_embedding_dimension(self, mock_embedder):
         embeddings = mock_embedder.embed_texts(["test text"])
-        assert len(embeddings[0]) == 1536
+        assert len(embeddings[0]) == settings.EMBEDDING_DIMENSIONS
 
     def test_embed_query_returns_single_vector(self, mock_embedder):
         vector = mock_embedder.embed_query("What is the IP rating?")
         assert isinstance(vector, list)
-        assert len(vector) == 1536
+        assert len(vector) == settings.EMBEDDING_DIMENSIONS
 
     def test_empty_input_returns_empty(self, mock_embedder):
         result = mock_embedder.embed_texts([])
