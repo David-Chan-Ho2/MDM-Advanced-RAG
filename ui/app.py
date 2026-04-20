@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
+
 from workflow.review_store import ReviewStore
 
 st.set_page_config(

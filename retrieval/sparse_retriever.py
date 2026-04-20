@@ -123,6 +123,11 @@ class SparseRetriever:
             self.load()
         return len(self._records)
 
+    def records(self) -> list[dict]:
+        if not self._records and self.exists():
+            self.load()
+        return list(self._records)
+
     def _score(self, query_tokens: list[str]) -> list[float]:
         lexical_scores = self._lexical_scores(query_tokens)
 

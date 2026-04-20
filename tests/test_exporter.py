@@ -21,7 +21,6 @@ from config.schema import (
 )
 from workflow.exporter import PIMExporter, _flatten_record
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

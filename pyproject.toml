@@ -1,9 +1,9 @@
 [project]
-name = "project3"
+name = "mdm-advanced-rag"
 version = "0.1.0"
-description = "MDM Advanced RAG — Product Attribute Extraction Pipeline"
+description = "MDM Advanced RAG - Product Attribute Extraction Pipeline"
 readme = "README.md"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.12"
 dependencies = [
     # LLM
     "anthropic>=0.40.0",
@@ -11,6 +11,7 @@ dependencies = [
 
     # Embeddings
     "openai>=1.50.0",
+    "sentence-transformers>=3.0.0",
 
     # Document parsing
     "pdfplumber>=0.11.0",
@@ -38,10 +39,8 @@ dependencies = [
     "tenacity>=9.0.0",
     "aiofiles>=24.1.0",
 
-    # Workflow and export
+    # Workflow, export, and UI
     "pandas>=2.2.0",
-
-    # UI
     "streamlit>=1.39.0",
 
     # Logging and progress
@@ -51,6 +50,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "fpdf2>=2.8.2",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.7.0",
+]
+
+[dependency-groups]
+dev = [
+    "fpdf2>=2.8.2",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
@@ -59,7 +68,7 @@ dev = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

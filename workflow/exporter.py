@@ -14,7 +14,6 @@ from typing import Any
 
 from config.schema import AttributeValue, ProductRecord
 
-
 # ---------------------------------------------------------------------------
 # Column definitions — order matters for the CSV output
 # ---------------------------------------------------------------------------

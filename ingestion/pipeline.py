@@ -7,10 +7,11 @@ from tqdm import tqdm
 
 from ingestion.chunker import Chunk, DocumentChunker
 from ingestion.parsers.base import BaseParser
-from ingestion.parsers.pdf_parser import PDFParser
+from ingestion.parsers.csv_parser import CsvParser
 from ingestion.parsers.docx_parser import DocxParser
 from ingestion.parsers.excel_parser import ExcelParser
 from ingestion.parsers.html_parser import HTMLParser
+from ingestion.parsers.pdf_parser import PDFParser
 from ingestion.parsers.txt_parser import TxtParser
 
 _DEFAULT_PARSERS: list[BaseParser] = [
@@ -18,6 +19,7 @@ _DEFAULT_PARSERS: list[BaseParser] = [
     DocxParser(),
     ExcelParser(),
     HTMLParser(),
+    CsvParser(),
     TxtParser(),
 ]
 
@@ -37,13 +39,15 @@ class IngestionPipeline:
             logger.warning(f"No parser found for {file_path.name} — skipping.")
             return []
         try:
-            doc = parser.parse(file_path)
-            doc.metadata = {
-                **doc.metadata,
-                "source_path": str(file_path.resolve()),
-            }
-            chunks = self.chunker.chunk(doc)
-            logger.debug(f"{file_path.name}: {len(chunks)} chunks")
+            docs = parser.parse_many(file_path)
+            chunks: list[Chunk] = []
+            for doc in docs:
+                doc.metadata = {
+                    **doc.metadata,
+                    "source_path": str(file_path.resolve()),
+                }
+                chunks.extend(self.chunker.chunk(doc))
+            logger.debug(f"{file_path.name}: {len(docs)} docs → {len(chunks)} chunks")
             return chunks
         except Exception as exc:
             logger.error(f"Failed to process {file_path.name}: {exc}")

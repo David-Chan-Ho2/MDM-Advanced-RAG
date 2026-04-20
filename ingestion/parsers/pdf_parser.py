@@ -1,5 +1,7 @@
 from pathlib import Path
+
 from loguru import logger
+
 from .base import BaseParser, ParsedDocument, ParsedPage
 
 

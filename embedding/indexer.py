@@ -19,7 +19,6 @@ class VectorIndexer:
     ):
         try:
             from qdrant_client import QdrantClient
-            from qdrant_client.models import Distance, VectorParams
         except ImportError:
             raise RuntimeError("qdrant-client is required: pip install qdrant-client")
 
@@ -95,7 +94,7 @@ class VectorIndexer:
         Returns list of payload dicts, each with an added 'score' key.
         filters: e.g. {"document_id": "product_abc"} — exact match on payload field.
         """
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
 
         qdrant_filter = None
         if filters:
@@ -105,15 +104,15 @@ class VectorIndexer:
             ]
             qdrant_filter = Filter(must=conditions)
 
-        results = self._client.search(
+        response = self._client.query_points(
             collection_name=self.collection,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
             query_filter=qdrant_filter,
             with_payload=True,
         )
 
-        return [{"score": r.score, **r.payload} for r in results]
+        return [{"score": r.score, **r.payload} for r in response.points]
 
     def count(self) -> int:
         return self._client.count(collection_name=self.collection).count

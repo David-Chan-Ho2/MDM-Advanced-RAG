@@ -1,7 +1,6 @@
 """Tests for DocumentChunker."""
 
-import pytest
-from ingestion.chunker import DocumentChunker, Chunk
+from ingestion.chunker import Chunk, DocumentChunker
 from ingestion.parsers.base import ParsedDocument, ParsedPage
 
 
