@@ -11,6 +11,8 @@ Flow:
 
 from __future__ import annotations
 
+import re
+
 from retrieval.hybrid_retriever import HybridRetriever
 
 _SYSTEM_PROMPT = """\
@@ -111,13 +113,40 @@ class AdvancedRAGChain:
 
     @staticmethod
     def _fallback_answer(question: str, results: list[dict]) -> str:
-        lowered_question = question.lower()
+        stopwords = {
+            "a",
+            "an",
+            "and",
+            "for",
+            "in",
+            "is",
+            "of",
+            "or",
+            "product",
+            "the",
+            "to",
+            "what",
+        }
+        question_tokens = {
+            token
+            for token in re.findall(r"[a-z0-9]+", question.lower())
+            if token not in stopwords
+        }
+        best_line = ""
+        best_score = 0
+
         for result in results:
             text = result.get("text", "")
             sentences = [sentence.strip() for sentence in text.splitlines() if sentence.strip()]
             for sentence in sentences:
-                if any(token in sentence.lower() for token in lowered_question.split()):
-                    return sentence
+                sentence_tokens = set(re.findall(r"[a-z0-9]+", sentence.lower()))
+                score = len(question_tokens & sentence_tokens)
+                if score > best_score:
+                    best_score = score
+                    best_line = sentence
+
+        if best_line:
+            return best_line
 
         return results[0].get("text", "Not found in the provided documents.")
 

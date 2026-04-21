@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     EXPORTS_DIR: Path = Path("data/exports")
     BM25_INDEX_PATH: Path = Path("data/bm25_index.pkl")
     REVIEW_DB_PATH: str = "data/review.db"
+    QDRANT_LOCAL_PATH: Path = Path("data/qdrant_local")
 
     # --- LLM ---
     ANTHROPIC_API_KEY: str = ""

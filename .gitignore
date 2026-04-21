@@ -22,6 +22,7 @@ venv/
 
 # Qdrant local storage
 qdrant_storage/
+data/qdrant_local/
 
 # BM25 index
 data/bm25_index.pkl

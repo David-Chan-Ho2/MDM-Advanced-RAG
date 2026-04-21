@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config.settings import settings
 from ingestion.chunker import Chunk
+
+_LOCAL_QDRANT_CLIENTS: dict[str, object] = {}
 
 
 class VectorIndexer:
@@ -22,10 +26,34 @@ class VectorIndexer:
         except ImportError:
             raise RuntimeError("qdrant-client is required: pip install qdrant-client")
 
-        self._client = QdrantClient(host=host, port=port)
         self.collection = collection
         self.vector_size = vector_size
+        self._backend = "remote"
+        self._client = self._build_client(QdrantClient, host=host, port=port)
         self._ensure_collection(vector_size)
+
+    def _build_client(self, qdrant_client_cls, host: str, port: int):
+        try:
+            client = qdrant_client_cls(host=host, port=port)
+            client.get_collections()
+            self._backend = f"http://{host}:{port}"
+            return client
+        except Exception as exc:
+            local_path = Path(settings.QDRANT_LOCAL_PATH)
+            local_path.mkdir(parents=True, exist_ok=True)
+            cache_key = str(local_path.resolve())
+            logger.warning(
+                "Could not connect to Qdrant at "
+                f"{host}:{port}; falling back to local embedded storage at "
+                f"{cache_key}: {exc}"
+            )
+            self._backend = f"local:{local_path}"
+            if cache_key not in _LOCAL_QDRANT_CLIENTS:
+                _LOCAL_QDRANT_CLIENTS[cache_key] = qdrant_client_cls(
+                    path=cache_key,
+                    force_disable_check_same_thread=True,
+                )
+            return _LOCAL_QDRANT_CLIENTS[cache_key]
 
     # ------------------------------------------------------------------
     # Collection management
@@ -40,9 +68,13 @@ class VectorIndexer:
                 collection_name=self.collection,
                 vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
-            logger.info(f"Created Qdrant collection '{self.collection}'")
+            logger.info(
+                f"Created Qdrant collection '{self.collection}' using {self._backend}"
+            )
         else:
-            logger.debug(f"Qdrant collection '{self.collection}' already exists")
+            logger.debug(
+                f"Qdrant collection '{self.collection}' already exists using {self._backend}"
+            )
 
     # ------------------------------------------------------------------
     # Indexing
@@ -120,6 +152,26 @@ class VectorIndexer:
     def delete_collection(self) -> None:
         self._client.delete_collection(collection_name=self.collection)
         logger.warning(f"Deleted Qdrant collection '{self.collection}'")
+
+    def reset_collection(self) -> None:
+        existing = [c.name for c in self._client.get_collections().collections]
+        if self.collection not in existing:
+            self._ensure_collection(self.vector_size)
+            return
+
+        if self._backend.startswith("local:"):
+            from qdrant_client.models import Filter
+
+            self._client.delete(
+                collection_name=self.collection,
+                points_selector=Filter(must=[]),
+                wait=True,
+            )
+            logger.warning(f"Cleared all points from Qdrant collection '{self.collection}'")
+            return
+
+        self.delete_collection()
+        self._ensure_collection(self.vector_size)
 
     # ------------------------------------------------------------------
     # Helpers

@@ -143,3 +143,8 @@ class TestCsvParser:
         assert [doc.document_id for doc in docs] == ["P1", "P2"]
         assert all(doc.metadata["source_document_id"] == "doc-1" for doc in docs)
         assert docs[0].metadata["product_id"] == "P1"
+
+    def test_normalizes_escaped_product_id_lists(self):
+        product_ids = self.parser._parse_product_ids(r'[\"P1922910\",\"P1921461\"]')
+
+        assert product_ids == ["P1922910", "P1921461"]

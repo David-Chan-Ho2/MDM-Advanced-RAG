@@ -96,6 +96,7 @@ class CsvParser(BaseParser):
         raw_value = (raw_value or "").strip()
         if not raw_value:
             return []
+        raw_value = raw_value.replace('\\"', '"').replace("\\'", "'")
 
         try:
             parsed = ast.literal_eval(raw_value)
@@ -111,7 +112,7 @@ class CsvParser(BaseParser):
 
         product_ids = []
         for value in values:
-            product_id = str(value).strip().strip("'\"")
+            product_id = str(value).strip().strip("'\"\\")
             if product_id:
                 product_ids.append(product_id)
 

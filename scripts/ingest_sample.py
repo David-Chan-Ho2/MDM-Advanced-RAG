@@ -51,8 +51,7 @@ def main() -> None:
 
     if args.reset:
         logger.warning("--reset: deleting existing collection")
-        indexer.delete_collection()
-        indexer = VectorIndexer()  # recreate
+        indexer.reset_collection()
         sparse_retriever.delete_index()
 
     # --- Collect files ---

@@ -171,8 +171,7 @@ class BatchExtractionRunner:
             self.sparse_retriever.delete_index()
             if isinstance(self.indexer, VectorIndexer):
                 try:
-                    self.indexer.delete_collection()
-                    self.indexer = VectorIndexer()
+                    self.indexer.reset_collection()
                 except Exception as exc:
                     logger.warning(f"Could not reset dense collection cleanly: {exc}")
             elif hasattr(self.indexer, "points"):

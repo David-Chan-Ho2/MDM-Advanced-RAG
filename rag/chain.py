@@ -10,6 +10,8 @@ Flow:
 
 from __future__ import annotations
 
+import re
+
 from loguru import logger
 
 from config.settings import settings
@@ -42,12 +44,7 @@ class BaseRAGChain:
         top_k: int = settings.TOP_K_DENSE,
         model: str = settings.CLAUDE_EXTRACTION_MODEL,
     ):
-        try:
-            import anthropic
-        except ImportError:
-            raise RuntimeError("anthropic is required: pip install anthropic")
-
-        self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self._client = self._build_client()
         self._embedder = embedder or EmbeddingService()
         self._indexer = indexer or VectorIndexer()
         self._top_k = top_k
@@ -79,15 +76,9 @@ class BaseRAGChain:
             context_parts.append(f"{header}\n{r.get('text', '')}")
         context = "\n\n---\n\n".join(context_parts)
 
-        # 4. Call Claude
+        # 4. Answer with Claude when configured; otherwise fall back to retrieved text.
         prompt = _CONTEXT_TEMPLATE.format(context=context, question=question)
-        message = self._client.messages.create(
-            model=self._model,
-            max_tokens=1024,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        answer = message.content[0].text
+        answer = self._answer(question, prompt, results)
 
         sources = [
             {
@@ -102,3 +93,71 @@ class BaseRAGChain:
 
         logger.debug(f"RAG query answered using {len(results)} chunks")
         return {"answer": answer, "sources": sources}
+
+    def _answer(self, question: str, prompt: str, results: list[dict]) -> str:
+        if self._client is None:
+            return self._fallback_answer(question, results)
+
+        try:  # pragma: no cover - external API path
+            message = self._client.messages.create(
+                model=self._model,
+                max_tokens=1024,
+                system=_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return message.content[0].text
+        except Exception as exc:
+            logger.warning(f"Claude query failed; falling back to retrieved context: {exc}")
+            return self._fallback_answer(question, results)
+
+    @staticmethod
+    def _fallback_answer(question: str, results: list[dict]) -> str:
+        stopwords = {
+            "a",
+            "an",
+            "and",
+            "for",
+            "in",
+            "is",
+            "of",
+            "or",
+            "product",
+            "the",
+            "to",
+            "what",
+        }
+        question_tokens = {
+            token
+            for token in re.findall(r"[a-z0-9]+", question.lower())
+            if token not in stopwords
+        }
+        best_line = ""
+        best_score = 0
+
+        for result in results:
+            text = result.get("text", "")
+            lines = [line.strip() for line in text.splitlines() if line.strip()]
+            for line in lines:
+                line_tokens = set(re.findall(r"[a-z0-9]+", line.lower()))
+                score = len(question_tokens & line_tokens)
+                if score > best_score:
+                    best_score = score
+                    best_line = line
+
+        if best_line:
+            return best_line
+
+        return results[0].get("text", "Not found in the provided documents.")
+
+    @staticmethod
+    def _build_client():
+        if not settings.ANTHROPIC_API_KEY:
+            return None
+
+        try:
+            import anthropic
+        except ImportError:
+            logger.warning("anthropic is not installed; using extractive fallback answers")
+            return None
+
+        return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
