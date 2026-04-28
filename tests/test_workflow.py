@@ -48,12 +48,12 @@ class FakeOrchestrator:
     def __init__(self):
         self.calls = []
 
-    def extract_document(self, document_id: str, document_filename: str, filters: dict | None = None):
-        self.calls.append({"document_id": document_id, "filters": filters or {}})
+    def extract_product(self, product_id: str, document_filename: str | None = None, filters: dict | None = None):
+        self.calls.append({"document_id": product_id, "filters": filters or {}})
         return ProductRecord(
-            document_id=document_id,
-            product_id=document_id,
-            document_filename=document_filename,
+            document_id=product_id,
+            product_id=product_id,
+            document_filename=document_filename or product_id,
             extraction_timestamp="2026-04-06T00:00:00+00:00",
             identifiers=ProductIdentifiers(),
         )

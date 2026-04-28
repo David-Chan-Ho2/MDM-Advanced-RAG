@@ -46,11 +46,11 @@ class BaseExtractionAgent(ABC):
 
     def extract(
         self,
-        document_id: str,
+        product_id: str,
         document_filename: str | None = None,
         filters: dict | None = None,
     ) -> AgentResult:
-        combined_filters = {"document_id": document_id}
+        combined_filters = {"product_id": product_id}
         if filters:
             combined_filters.update(filters)
 

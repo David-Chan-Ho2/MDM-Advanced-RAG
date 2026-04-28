@@ -7,6 +7,7 @@ from loguru import logger
 
 from agents.orchestrator import ExtractionOrchestrator
 from config.settings import settings
+from workflow.sample_output import SampleOutputFormatter
 from embedding.embedder import EmbeddingService
 from embedding.indexer import VectorIndexer
 from ingestion.pipeline import IngestionPipeline
@@ -42,6 +43,7 @@ class BatchExtractionRunner:
         concurrency: int = settings.BATCH_CONCURRENCY,
         resume: bool = True,
         force_reindex: bool = False,
+        output_path: str | None = None,
     ) -> dict:
         files = self._discover_files()
         if not files:
@@ -94,7 +96,21 @@ class BatchExtractionRunner:
             else:
                 summary["failed_documents"] += 1
 
+        if output_path:
+            self._write_output_json(output_path)
+
         return summary
+
+    def _write_output_json(self, output_path: str) -> None:
+        import json
+        from pathlib import Path
+
+        records = self.review_store.list_records()
+        formatted = SampleOutputFormatter().format_records(records)
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as fh:
+            json.dump(formatted, fh, indent=2)
+        logger.info(f"Wrote extraction output to {output_path}")
 
     def _discover_files(self) -> list[Path]:
         if not self.raw_dir.exists():
@@ -130,13 +146,11 @@ class BatchExtractionRunner:
                 {
                     "document_id": document_id,
                     "document_filename": record.get("filename") or f"{document_id}.txt",
-                    "filters": {"document_id": document_id},
+                    "filters": {"product_id": document_id},
                     "source_document_ids": set(),
                 },
             )
 
-            if record.get("product_id"):
-                target["filters"]["product_id"] = document_id
             if record.get("source_document_id"):
                 target["source_document_ids"].add(str(record["source_document_id"]))
 
@@ -217,8 +231,8 @@ class BatchExtractionRunner:
     def _process_target(self, target: dict) -> dict:
         document_id = target["document_id"]
         try:
-            record = self.orchestrator.extract_document(
-                document_id=document_id,
+            record = self.orchestrator.extract_product(
+                product_id=document_id,
                 document_filename=target["document_filename"],
                 filters=target.get("filters"),
             )

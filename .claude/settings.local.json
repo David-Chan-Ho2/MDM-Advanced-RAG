@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(uv sync:*)"
+      "Bash(uv sync:*)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python3 -m pytest tests/ -v --tb=short)",
+      "Bash(pip show *)",
+      "Bash(uv run *)",
+      "Bash(venv/bin/pytest *)"
     ]
   }
 }

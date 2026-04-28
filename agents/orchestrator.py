@@ -31,10 +31,10 @@ class ExtractionOrchestrator:
         ]
         self._validator = validator or ExtractionValidator()
 
-    def extract_document(
+    def extract_product(
         self,
-        document_id: str,
-        document_filename: str,
+        product_id: str,
+        document_filename: str | None = None,
         filters: dict | None = None,
     ):
         agent_results = []
@@ -43,7 +43,7 @@ class ExtractionOrchestrator:
             futures = {
                 executor.submit(
                     agent.extract,
-                    document_id=document_id,
+                    product_id=product_id,
                     document_filename=document_filename,
                     filters=filters,
                 ): agent
@@ -55,8 +55,8 @@ class ExtractionOrchestrator:
                 try:
                     agent_results.append(future.result())
                 except Exception as exc:
-                    logger.exception(f"{agent.name} failed for {document_id}: {exc}")
+                    logger.exception(f"{agent.name} failed for {product_id}: {exc}")
                     agent_results.append(agent.empty_result(notes=str(exc)))
 
         agent_results.sort(key=lambda result: result.agent_name)
-        return self._validator.merge(document_id, document_filename, agent_results)
+        return self._validator.merge(product_id, document_filename or product_id, agent_results)

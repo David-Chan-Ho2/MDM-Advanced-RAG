@@ -59,6 +59,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Rebuild dense and sparse indexes before extraction",
     )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path to write the extracted JSON output (e.g. data/extraction_output.json)",
+    )
     parser.set_defaults(resume=True)
     return parser.parse_args()
 
@@ -70,6 +76,7 @@ async def _run(args: argparse.Namespace) -> dict:
         concurrency=args.concurrency,
         resume=args.resume,
         force_reindex=args.reindex,
+        output_path=args.output,
     )
 
 

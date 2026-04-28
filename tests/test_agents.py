@@ -35,6 +35,7 @@ def build_chunks() -> list[dict]:
         {
             "chunk_id": "chunk-1",
             "document_id": "widget_pro",
+            "product_id": "widget_pro",
             "filename": "widget_pro.txt",
             "page_number": 1,
             "chunk_index": 0,
@@ -54,6 +55,7 @@ def build_chunks() -> list[dict]:
         {
             "chunk_id": "chunk-2",
             "document_id": "widget_pro",
+            "product_id": "widget_pro",
             "filename": "widget_pro.txt",
             "page_number": 2,
             "chunk_index": 1,
@@ -76,11 +78,11 @@ def build_chunks() -> list[dict]:
 def test_specialized_agents_extract_structured_attributes():
     retriever = StubRetriever(build_chunks())
 
-    identifiers = IdentifiersAgent(retriever=retriever, use_llm=False).extract("widget_pro", "widget_pro.txt")
-    dimensions = DimensionsAgent(retriever=retriever, use_llm=False).extract("widget_pro", "widget_pro.txt")
-    electrical = ElectricalAgent(retriever=retriever, use_llm=False).extract("widget_pro", "widget_pro.txt")
-    materials = MaterialsAgent(retriever=retriever, use_llm=False).extract("widget_pro", "widget_pro.txt")
-    performance = PerformanceAgent(retriever=retriever, use_llm=False).extract("widget_pro", "widget_pro.txt")
+    identifiers = IdentifiersAgent(retriever=retriever, use_llm=False).extract("widget_pro")
+    dimensions = DimensionsAgent(retriever=retriever, use_llm=False).extract("widget_pro")
+    electrical = ElectricalAgent(retriever=retriever, use_llm=False).extract("widget_pro")
+    materials = MaterialsAgent(retriever=retriever, use_llm=False).extract("widget_pro")
+    performance = PerformanceAgent(retriever=retriever, use_llm=False).extract("widget_pro")
 
     assert identifiers.payload["part_number"]["value"] == "WP-1234"
     assert dimensions.payload["weight"]["unit"] == "kg"
@@ -103,7 +105,7 @@ def test_orchestrator_merges_agent_outputs_into_product_record():
         validator=ExtractionValidator(),
     )
 
-    record = orchestrator.extract_document("widget_pro", "widget_pro.txt")
+    record = orchestrator.extract_product("widget_pro")
 
     assert record.identifiers.part_number.value == "WP-1234"
     assert record.physical_dimensions.length.unit == "mm"

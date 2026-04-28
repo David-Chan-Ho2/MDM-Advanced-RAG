@@ -56,15 +56,15 @@ _BOOLEAN_FALSE = {"false", "no", "non-compliant", "not compliant", "fail", "fail
 class ExtractionValidator:
     def merge(
         self,
-        document_id: str,
+        product_id: str,
         document_filename: str,
         agent_results: list,
     ) -> ProductRecord:
         payload_map = {result.section_name: result.payload for result in agent_results}
 
         record = ProductRecord(
-            document_id=document_id,
-            product_id=document_id,
+            document_id=product_id,
+            product_id=product_id,
             document_filename=document_filename,
             extraction_timestamp=datetime.now(timezone.utc).isoformat(),
             identifiers=ProductIdentifiers.model_validate(payload_map.get("identifiers", {})),
