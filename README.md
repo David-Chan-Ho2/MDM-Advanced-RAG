@@ -188,6 +188,8 @@ Open [http://localhost:8501](http://localhost:8501) in your browser.
 - **Approved** — view all approved records
 - **Export** — download CSV or JSON for PIM import
 
+Shashank PB completed a full Test before final submission.
+
 ---
 
 ## PIM Attribute Schema
@@ -215,7 +217,6 @@ The flat CSV export uses double-underscore column names:
 ```
 physical_dimensions__length__value, physical_dimensions__length__unit, physical_dimensions__length__confidence, ...
 ```
-Shashank PB completed a full Test before final submission.
 ---
 
 ## Architecture Notes
