@@ -1,72 +1,81 @@
 # MDM Advanced RAG — Product Attribute Extraction Pipeline
 
-An Advanced RAG pipeline that ingests product specification documents, extracts structured technical attributes using LLMs, and outputs PIM-ready data through a data steward approval workflow.
-
----
-
-## Overview
-
-Product technical specifications arrive in inconsistent formats (PDF, DOCX, Excel, HTML). This pipeline automates attribute extraction across ~5,000 documents using a multi-agent LLM framework, then routes results through a review UI before export to PIM/E-commerce systems.
+An end-to-end Retrieval-Augmented Generation pipeline that ingests product specification documents, extracts structured technical attributes using a multi-agent LLM framework, and routes results through a data steward review UI before export to PIM/E-commerce systems.
 
 ![Flowchart](docs/flowchart.png)
 
 ---
 
-## Team Work Division by Week
+## Overview
 
-### Week 1 — Foundation: Document Processing & Baseline RAG
+Product technical specifications arrive in inconsistent formats (PDF, DOCX, Excel, HTML). This pipeline automates attribute extraction across thousands of documents by combining hybrid vector search with a five-agent Claude-powered extraction framework. Extracted records are stored in SQLite, reviewed via a Streamlit UI, and exported as PIM-ready CSV or JSON.
 
-> Goal: ingestion pipeline working across all file types + baseline RAG answering queries
+**Key capabilities:**
 
-| Member   | Files                                                                                                                                    | Deliverable                                                              |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **1** | `config/settings.py`, `config/schema.py`, `ingestion/parsers/`, `ingestion/chunker.py`, `ingestion/pipeline.py`, `embedding/embedder.py` | Multi-format parser, chunker, batched embedding service                  |
-| **2** | `embedding/indexer.py`, `scripts/ingest_sample.py`                                                                                       | Qdrant vector store — collection creation, upsert, search; ingest script |
-| **3** | `rag/chain.py`, `scripts/query_baseline.py`                                                                                              | Baseline RAG chain (retrieve → prompt → Claude); CLI query script        |
-| **4** | `tests/conftest.py`, `tests/test_parsers.py`, `tests/test_chunker.py`, `tests/test_embedder.py`                                          | Unit tests for all Week 1 components                                     |
-
----
-
-### ✅ Week 2 — Advanced Retrieval & Multi-Agent Extraction _(complete)_
-
-> Goal: hybrid search + 5-agent extraction framework producing structured `ProductRecord`s
-
-| Member | Files                                                                                                              | Deliverable                                                                                               |
-| ------ | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| **1**  | `retrieval/dense_retriever.py`, `retrieval/sparse_retriever.py`                                                    | Qdrant ANN dense retriever; BM25 sparse retriever with disk persistence                                   |
-| **2**  | `retrieval/hybrid_retriever.py`, `retrieval/reranker.py`, `retrieval/query_decomposer.py`, `rag/advanced_chain.py` | RRF fusion, flashrank reranker, LLM query decomposition, advanced RAG chain                               |
-| **3**  | `agents/base_agent.py`, `agents/specialized/` (all 5), `agents/validator.py`, `agents/orchestrator.py`             | Full multi-agent extraction framework — runs agents in parallel per document, merges into `ProductRecord` |
-| **4**  | `workflow/review_store.py`, `workflow/batch_runner.py`                                                             | SQLite review state; async batch runner with checkpoint/resume for 5K docs                                |
-
-**Week 2 done when:** `python scripts/run_batch.py --limit 100` processes 100 documents and stores `ProductRecord`s in SQLite with >80% attribute accuracy on manual spot-check.
+- Multi-format document ingestion (PDF, DOCX, XLSX, HTML, TXT/MD)
+- Hybrid retrieval — dense (Qdrant ANN) + sparse (BM25) fused via Reciprocal Rank Fusion, then reranked by a local cross-encoder
+- Five parallel extraction agents per document (identifiers, dimensions, electrical, materials, performance)
+- Structured output enforced by `instructor` + Pydantic v2 — malformed LLM responses are automatically retried
+- Checkpoint-based async batch runner — resume mid-run without reprocessing completed documents
+- Streamlit review UI for approve / edit / reject workflow
+- Flat CSV + JSON export ready for PIM import
 
 ---
 
-### ✅ Week 3 — Approval Workflow & Final Integration _(complete)_
+## Architecture
 
-> Goal: data steward UI, full 5K extraction run, PIM export
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Ingestion Layer                          │
+│  PDF / DOCX / XLSX / HTML / TXT  →  Parser  →  Chunker         │
+│  →  OpenAI Embeddings  →  Qdrant (dense) + BM25 (sparse)       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       Retrieval Layer                           │
+│  Query Decomposer  →  Dense + Sparse retrievers                 │
+│  →  RRF Fusion  →  flashrank Reranker                           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Extraction Agents                          │
+│  IdentifiersAgent │ DimensionsAgent │ ElectricalAgent           │
+│  MaterialsAgent   │ PerformanceAgent  (run in parallel)         │
+│  →  Validator  →  Orchestrator  →  ProductRecord                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Review & Export Layer                       │
+│  SQLite (pending / approved / rejected / edited)                │
+│  Streamlit UI  →  CSV / JSON PIM export                         │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-| Member | Files                                                                                            | Deliverable                                              |
-| ------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| **1**  | `workflow/exporter.py`, `scripts/run_batch.py`                                                   | Flat CSV + JSON PIM exporter; batch CLI script           |
-| **2**  | `ui/app.py`, `ui/pages/01_review_queue.py`, `ui/pages/02_approved.py`, `ui/pages/03_export.py`   | Streamlit review UI — approve / edit / reject + download |
-| **3**  | Full extraction run across all ~5,000 documents, quality validation report                       | Completed `ProductRecord`s in SQLite ready for review    |
-| **4**  | `tests/test_retrieval.py`, `tests/test_agents.py`, `tests/test_exporter.py`, `README.md` updates | Complete test suite + final documentation                |
+### Design decisions
 
-**Week 3 done when:** Data stewards can open the Streamlit UI, review extractions, and export an approved CSV ready for PIM import.
+**Hybrid retrieval** — Dense search finds semantically similar content; BM25 finds exact keyword matches like part numbers and model codes. RRF merges both ranked lists and the cross-encoder reranker rescores merged candidates. Together they outperform either method alone on technical documents.
+
+**Per-document retrieval scoping** — Each extraction agent filters Qdrant by `document_id` so it only sees chunks from the target document, preventing cross-document attribute contamination.
+
+**`instructor` for structured output** — Wraps the Anthropic SDK and enforces Pydantic model output from every LLM call. If Claude returns malformed JSON it automatically retries with an error correction prompt.
+
+**Checkpoint-based batch processing** — `BatchExtractionRunner` writes each `ProductRecord` to SQLite immediately after extraction. If a run fails at document 3,000, restarting with `--resume` skips already-processed documents.
 
 ---
 
 ## Project Structure
 
 ```
-project3/
+MDM-Advanced-RAG/
 ├── config/
 │   ├── settings.py               # All constants: paths, model names, thresholds
-│   └── schema.py                 # PIM Pydantic models (ProductRecord, AttributeValue)
+│   └── schema.py                 # Pydantic models (ProductRecord, AttributeValue)
 ├── ingestion/
-│   ├── pipeline.py               # IngestionPipeline — selects parser, chunks output
-│   ├── chunker.py                # DocumentChunker (RecursiveCharacterTextSplitter)
+│   ├── pipeline.py               # Selects parser, chunks output
+│   ├── chunker.py                # RecursiveCharacterTextSplitter wrapper
 │   └── parsers/
 │       ├── base.py               # BaseParser ABC + ParsedDocument dataclass
 │       ├── pdf_parser.py         # pdfplumber (tables as markdown) + pypdf fallback
@@ -75,12 +84,12 @@ project3/
 │       ├── html_parser.py        # BeautifulSoup, strips nav/footer noise
 │       └── txt_parser.py         # Plain text / Markdown
 ├── embedding/
-│   ├── embedder.py               # EmbeddingService — batched OpenAI calls with retry
-│   └── indexer.py                # VectorIndexer — Qdrant upsert + search
+│   ├── embedder.py               # Batched OpenAI embedding calls with retry
+│   └── indexer.py                # Qdrant upsert + search
 ├── retrieval/
 │   ├── dense_retriever.py        # Vector similarity (Qdrant ANN)
 │   ├── sparse_retriever.py       # BM25 (rank-bm25), persisted to disk
-│   ├── hybrid_retriever.py       # RRF fusion of dense + sparse → re-rank
+│   ├── hybrid_retriever.py       # RRF fusion + rerank
 │   ├── reranker.py               # flashrank cross-encoder
 │   └── query_decomposer.py       # LLM sub-query generation
 ├── agents/
@@ -94,22 +103,22 @@ project3/
 │       ├── materials_agent.py    # Materials, RoHS, certifications
 │       └── performance_agent.py  # Temperature, accuracy, flow rate
 ├── rag/
-│   ├── chain.py                  # BaseRAGChain — simple retrieve → Claude call (Week 1)
-│   └── advanced_chain.py         # AdvancedRAGChain — hybrid + rerank (Week 2)
+│   ├── chain.py                  # Simple retrieve → Claude chain
+│   └── advanced_chain.py         # Hybrid + rerank chain
 ├── workflow/
 │   ├── review_store.py           # SQLite state (pending/approved/rejected/edited)
-│   ├── batch_runner.py           # Async runner with checkpoint/resume for 5K docs
+│   ├── batch_runner.py           # Async batch runner with checkpoint/resume
 │   └── exporter.py               # PIMExporter → flat CSV + JSON
 ├── ui/
 │   ├── app.py                    # Streamlit entry point
 │   └── pages/
-│       ├── 01_review_queue.py    # Pending extractions — approve / edit / reject
+│       ├── 01_review_queue.py    # Approve / edit / reject extractions
 │       ├── 02_approved.py        # Approved records read-only view
 │       └── 03_export.py          # Export controls + download
 ├── scripts/
 │   ├── ingest_sample.py          # Ingest a folder of documents into the vector store
-│   ├── query_baseline.py         # Query the baseline RAG from the CLI
-│   └── run_batch.py              # Run full batch extraction across all documents
+│   ├── query_baseline.py         # Query the RAG pipeline from the CLI
+│   └── run_batch.py              # Run full batch extraction
 ├── tests/
 ├── data/
 │   ├── raw/                      # Original documents (gitignored)
@@ -124,156 +133,158 @@ project3/
 
 ## Setup
 
-### 1. Clone and install dependencies
+### Prerequisites
+
+- Python 3.11+
+- Docker (for Qdrant)
+- Anthropic API key
+- OpenAI API key (embeddings)
+
+### 1. Clone and install
 
 ```bash
 git clone <repo-url>
-cd project3
+cd MDM-Advanced-RAG
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment variables
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys:
-#   ANTHROPIC_API_KEY=...
-#   OPENAI_API_KEY=...
 ```
 
-### 3. Start Qdrant (vector store)
+Edit `.env` and set:
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+```
+
+All other settings (model names, chunk sizes, retrieval parameters) are configurable in [config/settings.py](config/settings.py) or via environment variables.
+
+### 3. Start Qdrant
 
 ```bash
 docker run -p 6333:6333 qdrant/qdrant
 ```
 
-> If Docker is unavailable, see [Chroma fallback](#chroma-fallback) below.
+> **No Docker?** See [Chroma Fallback](#chroma-fallback) below.
 
 ---
 
 ## Usage
 
-### Week 1 — Ingest and query a sample
+### Ingest documents
+
+Place source documents in `data/raw/`, then run:
 
 ```bash
-# Place sample documents in data/raw/
 python scripts/ingest_sample.py --dir data/raw --limit 20
+```
 
-# Ask a question against the indexed documents
+### Query the pipeline
+
+```bash
 python scripts/query_baseline.py "What is the operating temperature range for product X?"
 ```
 
-### Week 2 — Run batch extraction
+### Run batch extraction
 
 ```bash
-# Process all documents (resumes automatically if interrupted)
+# Full run (resumes automatically if interrupted)
 python scripts/run_batch.py --concurrency 5
 
-# Process a limited subset first
+# Subset for testing
 python scripts/run_batch.py --limit 100 --concurrency 5
 ```
 
-### Week 3 — Review and export
+### Launch the review UI
 
 ```bash
-# Launch the data steward review UI
 streamlit run ui/app.py
 ```
 
-Open [http://localhost:8501](http://localhost:8501) in your browser.
+Open [http://localhost:8501](http://localhost:8501). The UI has three pages:
 
-- **Review Queue** — approve, edit, or reject extractions one by one
-- **Approved** — view all approved records
-- **Export** — download CSV or JSON for PIM import
-
-Shashank PB completed a full Test before final submission.
+| Page | Purpose |
+|------|---------|
+| **Review Queue** | Approve, edit, or reject pending extractions |
+| **Approved** | Read-only view of approved records |
+| **Export** | Download CSV or JSON for PIM import |
 
 ---
 
 ## PIM Attribute Schema
 
-Each extracted attribute is an `AttributeValue` carrying the value, unit, confidence level, and source chunk IDs for traceability.
+Each extracted attribute is stored as an `AttributeValue` with a value, unit, confidence level, and source chunk IDs for full traceability.
 
-| Group                      | Attributes                                                                             |
-| -------------------------- | -------------------------------------------------------------------------------------- |
-| **Identifiers**            | part_number, sku, gtin, manufacturer_name, product_family, revision                    |
-| **Physical Dimensions**    | length, width, height, depth, weight, diameter                                         |
-| **Electrical Specs**       | voltage_input, voltage_output, current_rating, power_consumption, frequency, ip_rating |
-| **Materials & Compliance** | primary_material, finish, rohs_compliant, reach_compliant, certifications              |
-| **Performance Metrics**    | operating_temp_min/max, storage_temp_min/max, accuracy, flow_rate, pressure_rating     |
+| Group | Attributes |
+|-------|-----------|
+| **Identifiers** | `part_number`, `sku`, `gtin`, `manufacturer_name`, `product_family`, `revision` |
+| **Physical Dimensions** | `length`, `width`, `height`, `depth`, `weight`, `diameter` |
+| **Electrical Specs** | `voltage_input`, `voltage_output`, `current_rating`, `power_consumption`, `frequency`, `ip_rating` |
+| **Materials & Compliance** | `primary_material`, `finish`, `rohs_compliant`, `reach_compliant`, `certifications` |
+| **Performance Metrics** | `operating_temp_min/max`, `storage_temp_min/max`, `accuracy`, `flow_rate`, `pressure_rating` |
 
 **Confidence levels:**
 
-| Level    | Meaning                                                 |
-| -------- | ------------------------------------------------------- |
-| `high`   | Value appears verbatim and unambiguously in source text |
-| `medium` | Value inferred from context or in an unusual format     |
-| `low`    | Best guess — source is ambiguous or partial             |
+| Level | Meaning |
+|-------|---------|
+| `high` | Value appears verbatim and unambiguously in the source text |
+| `medium` | Value inferred from context or in an unusual format |
+| `low` | Best guess — source is ambiguous or partial |
 
 The flat CSV export uses double-underscore column names:
 
 ```
-physical_dimensions__length__value, physical_dimensions__length__unit, physical_dimensions__length__confidence, ...
-```
----
-
-## Architecture Notes
-
-### Why hybrid retrieval?
-
-Dense (vector) search finds semantically similar content. Sparse (BM25) search finds exact keyword matches like part numbers and model codes. Reciprocal Rank Fusion (RRF) merges both ranked lists; the cross-encoder reranker then rescores the merged candidates. Together they outperform either method alone on technical documents.
-
-### Why per-document retrieval in batch mode?
-
-Each extraction agent filters Qdrant by `document_id` so it only sees chunks from the target document. This prevents Product A's specifications from contaminating Product B's extraction.
-
-### Why `instructor`?
-
-The `instructor` library wraps the Anthropic SDK and enforces Pydantic model output from every LLM call. If Claude returns malformed JSON, it automatically retries with an error correction prompt — eliminating a whole class of parsing bugs at scale.
-
-### Why checkpoint-based batch processing?
-
-`BatchExtractionRunner` writes each `ProductRecord` to SQLite immediately after extraction. If a run fails at document 3,000, restarting with `--resume` skips already-processed documents. No work is lost.
-
----
-
-## Chroma Fallback
-
-If Docker/Qdrant is not available, `VectorIndexer` can be swapped for a Chroma-backed implementation. Both expose the same interface (`upsert`, `search`). Hybrid search is not natively supported in Chroma — the sparse BM25 leg still runs independently and results are fused in Python.
-
-```bash
-pip install chromadb
-# Set in .env:
-VECTOR_BACKEND=chroma
+physical_dimensions__length__value
+physical_dimensions__length__unit
+physical_dimensions__length__confidence
+...
 ```
 
 ---
 
 ## Key Dependencies
 
-| Package                                                   | Purpose                                   |
-| --------------------------------------------------------- | ----------------------------------------- |
-| `anthropic` + `instructor`                                | LLM calls with enforced structured output |
-| `openai`                                                  | Text embeddings                           |
-| `qdrant-client`                                           | Vector store                              |
-| `pdfplumber`, `python-docx`, `openpyxl`, `beautifulsoup4` | Document parsing                          |
-| `rank-bm25`                                               | Sparse BM25 retrieval                     |
-| `flashrank`                                               | Local cross-encoder reranking             |
-| `langchain-text-splitters`                                | Recursive text chunking                   |
-| `pydantic` v2 + `pydantic-settings`                       | Schema validation and config              |
-| `streamlit`                                               | Data steward review UI                    |
-| `tenacity`                                                | Retry with exponential backoff            |
-| `loguru`                                                  | Structured logging                        |
-| `tqdm`                                                    | Progress bars                             |
+| Package | Purpose |
+|---------|---------|
+| `anthropic` + `instructor` | LLM calls with enforced structured output |
+| `openai` | Text embeddings (`text-embedding-3-small`) |
+| `qdrant-client` | Vector store |
+| `pdfplumber`, `python-docx`, `openpyxl`, `beautifulsoup4` | Document parsing |
+| `rank-bm25` | Sparse BM25 retrieval |
+| `flashrank` | Local cross-encoder reranking |
+| `langchain-text-splitters` | Recursive text chunking |
+| `pydantic` v2 + `pydantic-settings` | Schema validation and config |
+| `streamlit` | Data steward review UI |
+| `tenacity` | Retry with exponential backoff |
+| `loguru` | Structured logging |
+| `pytest` | Test suite |
 
 ---
 
-## Week-by-Week Milestones
+## Running Tests
 
-| Week  | Status      | Goal                | Acceptance Criteria                                                     |
-| ----- | ----------- | ------------------- | ----------------------------------------------------------------------- |
-| **1** | ✅ Complete | Foundation          | `ingest_sample.py` + `query_baseline.py` working end-to-end on 20 docs |
-| **2** | ✅ Complete | Advanced extraction | `run_batch.py` on 500 docs, >80% extraction accuracy on spot-check     |
-| **3** | ✅ Complete | Approval + export   | Data stewards can review and export approved PIM data via Streamlit UI  |
+```bash
+pytest tests/ -v
+```
+
+---
+
+## Chroma Fallback
+
+If Qdrant is unavailable, `VectorIndexer` can be swapped for a Chroma-backed implementation. Both expose the same `upsert` / `search` interface. Hybrid search is not natively supported in Chroma — the BM25 leg still runs independently and results are fused in Python.
+
+```bash
+pip install chromadb
+```
+
+Set in `.env`:
+
+```env
+VECTOR_BACKEND=chroma
+```
